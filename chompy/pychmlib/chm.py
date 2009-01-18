@@ -1,5 +1,5 @@
 from __future__ import generators, nested_scopes
-from struct import unpack, calcsize
+from struct import unpack
 
 _CHARSET_TABLE = { 
     0x0804:"gbk",

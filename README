@@ -1,0 +1,4 @@
+chompy is a CHM reader intended for use in phones using Symbian.
+
+Requirements:
+Python (at least 2.2)
