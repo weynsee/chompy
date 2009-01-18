@@ -8,7 +8,7 @@ class CHMFile1Test(unittest.TestCase):
     def setUp(self):
         self.chm = loadCHM("chm_files/CHM-example.chm")
         
-    def test_ITSF(self):
+    def test_itsf(self):
         itsf = self.chm.itsf
         self.assertEquals(3,itsf.version)
         self.assertEquals(96,itsf.length)
@@ -17,7 +17,7 @@ class CHMFile1Test(unittest.TestCase):
         self.assertEquals(4180,itsf.dir_length)
         self.assertEquals(4300,itsf.data_offset)
     
-    def test_ITSP(self):
+    def test_itsp(self):
         itsp = self.chm.itsp
         self.assertEquals(1,itsp.version)
         self.assertEquals(84,itsp.length)
@@ -54,7 +54,7 @@ class CHMFile2Test(unittest.TestCase):
     def setUp(self):
         self.chm = loadCHM("chm_files/iexplore.chm")
         
-    def test_ITSF(self):
+    def test_itsf(self):
         itsf = self.chm.itsf
         self.assertEquals(3,itsf.version)
         self.assertEquals(96,itsf.length)
@@ -63,7 +63,7 @@ class CHMFile2Test(unittest.TestCase):
         self.assertEquals(12372,itsf.dir_length)
         self.assertEquals(12492,itsf.data_offset)
     
-    def test_ITSP(self):
+    def test_itsp(self):
         itsp = self.chm.itsp
         self.assertEquals(1,itsp.version)
         self.assertEquals(84,itsp.length)

@@ -44,6 +44,29 @@ class _CHMFile:
         self._lzx_block_offset = entry.offset + self.itsf.data_offset
         entry = self._get_entry(_LZXC_CONTROLDATA)
         self.clcd = self._get_CLCD(entry)
+    
+    def enumerate_files(self, condition=None):
+        pmgl = self._get_PMGL(self.itsp.first_pmgl_block)
+        while pmgl:
+            for section in pmgl.entries():
+                if condition and condition(section):
+                    yield section
+                elif not condition:
+                    yield section
+            pmgl = self._get_PMGL(pmgl.next_block)
+            
+    def content_files(self):
+        def content_only(section):
+            name = section.name
+            if name.startswith("/") and len(name) > 1 and not(name.startswith("/#") or name.startswith("/$")):
+                return True
+        return self.enumerate_files(content_only)
+    
+    def all_files(self):
+        return self.enumerate_files()
+    
+    def all_files(self):
+        return self.enumerate()
         
     def _get_entry(self, filename):
         start = self.itsp.first_pmgl_block
