@@ -1,12 +1,12 @@
 import unittest
 
-from pychmlib.chm import loadCHM 
+from pychmlib.chm import chm 
 
 class CHMFile1Test(unittest.TestCase):
     "test cases for CHMFile"
     
     def setUp(self):
-        self.chm = loadCHM("chm_files/CHM-example.chm")
+        self.chm = chm("chm_files/CHM-example.chm")
         
     def test_itsf(self):
         itsf = self.chm.itsf
@@ -44,6 +44,10 @@ class CHMFile1Test(unittest.TestCase):
         self.assertEquals(2,clcd.reset_interval)
         self.assertEquals(65536,clcd.window_size)
         
+    def test_enumeration(self):
+        self.assertEquals(83,len(list(self.chm.all_files())))
+        self.assertEquals(53,len(list(self.chm.content_files())))
+        
     def tearDown(self):
         self.chm.close()
 
@@ -52,7 +56,7 @@ class CHMFile2Test(unittest.TestCase):
     "test cases for CHMFile"
     
     def setUp(self):
-        self.chm = loadCHM("chm_files/iexplore.chm")
+        self.chm = chm("chm_files/iexplore.chm")
         
     def test_itsf(self):
         itsf = self.chm.itsf
@@ -94,6 +98,10 @@ class CHMFile2Test(unittest.TestCase):
         self.assertEquals(2,clcd.version)
         self.assertEquals(2,clcd.reset_interval)
         self.assertEquals(65536,clcd.window_size)
+        
+    def test_enumeration(self):
+        self.assertEquals(246,len(list(self.chm.all_files())))
+        self.assertEquals(218,len(list(self.chm.content_files())))
         
     def tearDown(self):
         self.chm.close()

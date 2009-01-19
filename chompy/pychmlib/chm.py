@@ -23,7 +23,7 @@ _RESET_TABLE = "::DataSpace/Storage/MSCompressed/Transform/{7FC28940-9D31-11D0-9
 _CONTENT = "::DataSpace/Storage/MSCompressed/Content"
 _LZXC_CONTROLDATA = "::DataSpace/Storage/MSCompressed/ControlData"
 
-def loadCHM(filename):
+def chm(filename):
     return _CHMFile(filename)
 
 class _CHMFile:
@@ -64,9 +64,6 @@ class _CHMFile:
     
     def all_files(self):
         return self.enumerate_files()
-    
-    def all_files(self):
-        return self.enumerate()
         
     def _get_entry(self, filename):
         start = self.itsp.first_pmgl_block
@@ -236,9 +233,8 @@ def _clcd(segment):
     return section
     
 def _validate_header(segment, type):
-    if DEBUG:
-        if segment[:len(type)] != type:
-            raise SegmentError(type)
+    if DEBUG and segment[:len(type)] != type:
+        raise SegmentError(type)
 
 def _get_encint(bytes, start):
     pointer = start
