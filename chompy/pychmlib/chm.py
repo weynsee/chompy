@@ -37,27 +37,27 @@ class _CHMFile:
         self.itsp = self._get_ITSP()
         self._dir_offset = self.itsf.dir_offset + self.itsp.length;
         self.pmgi = self._get_PMGI()
-        entry = self._get_entry(_RESET_TABLE)
+        entry = self.resolve_object(_RESET_TABLE)
         self.lrt = self._get_LRT(entry)
-        entry = self._get_entry(_CONTENT)
+        entry = self.resolve_object(_CONTENT)
         self._lzx_block_length = entry.length
         self._lzx_block_offset = entry.offset + self.itsf.data_offset
-        entry = self._get_entry(_LZXC_CONTROLDATA)
+        entry = self.resolve_object(_LZXC_CONTROLDATA)
         self.clcd = self._get_CLCD(entry)
     
     def enumerate_files(self, condition=None):
         pmgl = self._get_PMGL(self.itsp.first_pmgl_block)
         while pmgl:
-            for section in pmgl.entries():
-                if condition and condition(section):
-                    yield section
+            for ui in pmgl.entries():
+                if condition and condition(ui):
+                    yield ui
                 elif not condition:
-                    yield section
+                    yield ui
             pmgl = self._get_PMGL(pmgl.next_block)
             
     def content_files(self):
-        def content_only(section):
-            name = section.name
+        def content_only(ui):
+            name = ui.name
             if name.startswith("/") and len(name) > 1 and not(name.startswith("/#") or name.startswith("/$")):
                 return True
         return self.enumerate_files(content_only)
@@ -65,7 +65,7 @@ class _CHMFile:
     def all_files(self):
         return self.enumerate_files()
         
-    def _get_entry(self, filename):
+    def resolve_object(self, filename):
         start = self.itsp.first_pmgl_block
         stop = self.itsp.last_pmgl_block
         if self.pmgi:
@@ -78,9 +78,9 @@ class _CHMFile:
                 start = len(entries) - 1
         while True:
             pmgl = self._get_PMGL(start)
-            for section in pmgl.entries():
-                if filename == section.name:
-                    return section
+            for ui in pmgl.entries():
+                if filename == ui.name:
+                    return ui
             else:
                 if start == stop:
                     return None
@@ -90,7 +90,7 @@ class _CHMFile:
     def _get_PMGL(self, start):
         if (start == - 1):
             return None
-        return _pmgl(self._get_segment(self._dir_offset + start * self.itsp.dir_block_length, self.itsp.dir_block_length))  
+        return _pmgl(self._get_segment(self._dir_offset + start * self.itsp.dir_block_length, self.itsp.dir_block_length), self)  
         
     def _get_encoding(self):
         lang_id = self.itsf.lang_id
@@ -126,6 +126,14 @@ class _CHMFile:
 class _Section:
     pass
 
+class UnitInfo:
+    
+    def __init__(self, chm):
+        self.chm = chm
+    
+    def get_content(self):
+        pass
+
 class SegmentError(Exception):
     
     def __init__(self, segment_type):
@@ -156,7 +164,7 @@ def _itsp(segment):
     section.last_pmgl_block = unpack(fmt, segment[4:40])
     return section
     
-def _pmgl(segment):
+def _pmgl(segment,chm):
     _validate_header(segment, "PMGL")
     section = _Section()
     fmt = "<l 4x 4x i"
@@ -169,24 +177,24 @@ def _pmgl(segment):
         bytes_remaining = br
         while bytes_remaining > 0:
             iter_read = 0
-            inner_section = _Section()
+            ui = UnitInfo(chm)
             name_length, bytes_read = _get_encint(bytes, pointer);
             pointer += bytes_read
             iter_read += bytes_read
-            inner_section.name = unicode(bytes[pointer:pointer + name_length], 'utf-8')
+            ui.name = unicode(bytes[pointer:pointer + name_length], 'utf-8')
             pointer += name_length
             iter_read += name_length
-            inner_section.compression, bytes_read = _get_encint(bytes, pointer);
+            ui.compression, bytes_read = _get_encint(bytes, pointer);
             pointer += bytes_read
             iter_read += bytes_read
-            inner_section.offset, bytes_read = _get_encint(bytes, pointer);
+            ui.offset, bytes_read = _get_encint(bytes, pointer);
             pointer += bytes_read
             iter_read += bytes_read
-            inner_section.length, bytes_read = _get_encint(bytes, pointer);
+            ui.length, bytes_read = _get_encint(bytes, pointer);
             pointer += bytes_read
             iter_read += bytes_read
             bytes_remaining -= iter_read
-            yield inner_section
+            yield ui
     section.entries = entries
     return section
     
