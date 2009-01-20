@@ -1,4 +1,5 @@
 import unittest
+import struct
 
 from pychmlib.chm import chm 
 
@@ -47,6 +48,10 @@ class CHMFile1Test(unittest.TestCase):
     def test_enumeration(self):
         self.assertEquals(83,len(list(self.chm.all_files())))
         self.assertEquals(53,len(list(self.chm.content_files())))
+        
+    def test_unit_info(self):
+        ui = self.chm.resolve_object("::DataSpace/Storage/MSCompressed/Transform/{7FC28940-9D31-11D0-9B27-00A0C91E9C7C}/InstanceData/ResetTable")
+        self.assertEquals(168,len(ui.get_content()))
         
     def tearDown(self):
         self.chm.close()

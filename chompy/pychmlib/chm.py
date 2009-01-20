@@ -132,7 +132,16 @@ class UnitInfo:
         self.chm = chm
     
     def get_content(self):
-        pass
+        if self.compression == False:
+            return self.chm._get_segment(self.chm.itsf.data_offset + self.offset, self.length)
+        else:
+            bytes_per_block = self.chm.lrt.block_length
+            start_block = self.offset / bytes_per_block
+            end_block = (self.offset + self.length) / bytes_per_block
+            start_offset = self.offset % bytes_per_block
+            end_block = (self.offset + self.length) % bytes_per_block
+            ini_block = start_block - start_block % self.chm.clcd.reset_interval
+        
 
 class SegmentError(Exception):
     
