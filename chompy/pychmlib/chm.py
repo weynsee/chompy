@@ -66,6 +66,7 @@ class _CHMFile:
         return self.enumerate_files()
         
     def resolve_object(self, filename):
+        filename = filename.lower()
         start = self.itsp.first_pmgl_block
         stop = self.itsp.last_pmgl_block
         if self.pmgi:
@@ -190,7 +191,7 @@ def _pmgl(segment,chm):
             name_length, bytes_read = _get_encint(bytes, pointer);
             pointer += bytes_read
             iter_read += bytes_read
-            ui.name = unicode(bytes[pointer:pointer + name_length], 'utf-8')
+            ui.name = unicode(bytes[pointer:pointer + name_length], 'utf-8').lower()
             pointer += name_length
             iter_read += name_length
             ui.compression, bytes_read = _get_encint(bytes, pointer);
@@ -221,7 +222,7 @@ def _pmgi(segment):
         name_length, bytes_read = _get_encint(bytes, pointer);
         pointer += bytes_read
         iter_read += bytes_read
-        name = unicode(bytes[pointer:pointer + name_length], 'utf-8')
+        name = unicode(bytes[pointer:pointer + name_length], 'utf-8').lower()
         pointer += name_length
         iter_read += name_length
         block, bytes_read = _get_encint(bytes, pointer);

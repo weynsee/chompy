@@ -1,5 +1,4 @@
 import unittest
-import struct
 
 from pychmlib.chm import chm 
 
@@ -55,7 +54,6 @@ class CHMFile1Test(unittest.TestCase):
         
     def tearDown(self):
         self.chm.close()
-
 
 class CHMFile2Test(unittest.TestCase):
     "test cases for CHMFile"
