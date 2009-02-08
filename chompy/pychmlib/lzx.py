@@ -54,14 +54,14 @@ class _BitBuffer:
         self.left = 0
         self.value = 0
         self.bytes = bytes
+        self.length = len(bytes)
         self.traversed = 0
         
     def read_bits(self, get_bits, remove_bits=None):
         if remove_bits is None:
             remove_bits = get_bits
         while self.left < 16:
-            a, b = self.pop(2)
-            self.value = (self.value << 16) + a + (b << 8)
+            self.value = (self.value << 16) + self.pop() + (self.pop() << 8)
             self.left += 16
         temp = self.value >> (self.left - get_bits)
         self.left -= remove_bits
@@ -69,11 +69,13 @@ class _BitBuffer:
         self.value -= (t << self.left)
         return temp
     
-    def pop(self, length=1):
-        fmt = "B " * length
-        val = struct.unpack(fmt, self.bytes[self.traversed:self.traversed + length])
-        self.traversed += length
-        return val
+    def pop(self):
+        if self.traversed < self.length:
+            val, = struct.unpack("B", self.bytes[self.traversed])
+            self.traversed += 1
+            return val
+        else:
+            return 0
     
     def check_bit(self, i):
         n = 1 << (self.left - i)
@@ -99,12 +101,12 @@ def create_lzx_block(block_no, window, bytes, block_length, prev_block=None):
         if lzx_state.block_remaining == 0:
             lzx_state.type = buf.read_bits(3)
             assert lzx_state.type == 1 #can't handle anything but verbatim
-            lzx_state.block_length = (buf.read_bits(3) << 8) + buf.read_bits(8)
+            lzx_state.block_length = (buf.read_bits(16) << 8) + buf.read_bits(8)
             lzx_state.block_remaining = lzx_state.block_length
             lzx_state._main_tree_table = _create_main_tree_table(lzx_state, buf)
             lzx_state._length_tree_table = _create_length_tree_table(lzx_state, buf)
             if lzx_state._main_tree_length_table[0xe8] != 0:
-                lzx_state.intel_started = true
+                lzx_state.intel_started = True
             break
         if block.content_length + lzx_state.block_remaining > block_length:
             lzx_state.block_remaining = block.content_length + lzx_state.block_remaining - block_length
@@ -228,6 +230,10 @@ def _create_length_tree_table(lzx_state, buf):
                 (1 << _LZX_LENGTH_TABLEBITS) + (_LZX_LENGTH_MAXSYMBOLS << 1),
                 _LZX_LENGTH_TABLEBITS, _NUM_SECONDARY_LENGTHS)
 
+def print_tree(tree):
+    for t in xrange(len(tree)):
+        print str(t)+"    "+str(tree[t])
+
 def _create_main_tree_table(lzx_state, buf):
     pre_length_table = _create_pre_length_table(buf)
     pre_tree_table = _create_pre_tree_table(pre_length_table,
@@ -271,11 +277,11 @@ def _init_tree_length_table(table, buf, counter, table_length, pre_tree_table, p
             y += 4
             z = _get_main_tree_index(buf, _LZX_PRETREE_TABLEBITS, pre_tree_table, _LZX_PRETREE_MAXSYMBOLS)
             buf.read_bits(pre_length_table[z])
-            z = table[i] - z
+            z = table[counter] - z
             if z < 0:
                 z += 17
             for j in xrange(y):
-                tree[counter] = z
+                table[counter] = z
                 counter += 1 
     
 def _create_pre_tree_table(length_table, table_length, bits, max_symbol):
@@ -290,8 +296,7 @@ def _create_pre_tree_table(length_table, table_length, bits, max_symbol):
             if (length_table[x] == bit_num):
                 leaf = pos
                 pos += bit_mask
-                if pos > table_mask:
-                    return None
+                assert pos <= table_mask, "invalid state"
                 fill = bit_mask
                 while (fill > 0):
                     fill -= 1
@@ -320,8 +325,7 @@ def _create_pre_tree_table(length_table, table_length, bits, max_symbol):
                             leaf += 1
                     tmp[leaf] = i
                     pos += bit_mask
-                    if pos > table_mask:
-                        return None
+                    assert pos <= table_mask, "invalid state"
             bit_mask >>= 1
             bit_num += 1
     if pos == table_mask:
