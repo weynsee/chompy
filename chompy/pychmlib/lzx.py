@@ -90,8 +90,11 @@ def create_lzx_block(block_no, window, bytes, block_length, prev_block=None):
     if prev_block is None:
         prev_block = _create_empty_block(window)
     lzx_state = prev_block.lzx_state
+    block.lzx_state = lzx_state
     if lzx_state.block_length > lzx_state.block_remaining:
         prev_content = prev_block.content
+    else:
+        prev_content = []
     buf = _BitBuffer(bytes)
     if not lzx_state.header_read:
         lzx_state.header_read = True
@@ -107,14 +110,13 @@ def create_lzx_block(block_no, window, bytes, block_length, prev_block=None):
             lzx_state._length_tree_table = _create_length_tree_table(lzx_state, buf)
             if lzx_state._main_tree_length_table[0xe8] != 0:
                 lzx_state.intel_started = True
-            break
         if block.content_length + lzx_state.block_remaining > block_length:
             lzx_state.block_remaining = block.content_length + lzx_state.block_remaining - block_length
             length = block_length
         else:
             length = block.content_length + lzx_state.block_remaining
             lzx_state.block_remaining = 0
-        _decompress_verbatim_block(lzx_state, block.content_length, buf, length, block_length, prev_content)
+        block.content = _decompress_verbatim_block(lzx_state, block.content_length, buf, length, block_length, prev_content)
         block.content_length = length
     return block
 
@@ -147,6 +149,7 @@ def _decompress_verbatim_block(lzx_state, content_length, buf, length, block_len
         buf.read_bits(main_tree_length[s])
         if s < _NUM_CHARS:
             content.append(s)
+            i += 1
         else:
             s -= _NUM_CHARS
             match_length = s & _LZX_NUM_PRIMARY_LENGTHS
@@ -218,6 +221,7 @@ def _decompress_verbatim_block(lzx_state, content_length, buf, length, block_len
         lzx_state.R0 = R0
         lzx_state.R1 = R1
         lzx_state.R2 = R2
+    return content
 
 def _create_length_tree_table(lzx_state, buf):
     pre_length_table = _create_pre_length_table(buf)
@@ -229,10 +233,6 @@ def _create_length_tree_table(lzx_state, buf):
     return _create_pre_tree_table(lzx_state._length_tree_length_table,
                 (1 << _LZX_LENGTH_TABLEBITS) + (_LZX_LENGTH_MAXSYMBOLS << 1),
                 _LZX_LENGTH_TABLEBITS, _NUM_SECONDARY_LENGTHS)
-
-def print_tree(tree):
-    for t in xrange(len(tree)):
-        print str(t)+"    "+str(tree[t])
 
 def _create_main_tree_table(lzx_state, buf):
     pre_length_table = _create_pre_length_table(buf)
