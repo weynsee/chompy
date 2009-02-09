@@ -129,7 +129,7 @@ def _get_main_tree_index(buf, main_bits, tree_table, main_max_symbol):
             x += 1
             z <<= 1
             z += buf.check_bit(x)
-            z = pre_tree_table[z]
+            z = tree_table[z]
             if z < main_max_symbol:
                 break
     return z
@@ -142,20 +142,19 @@ def _decompress_verbatim_block(lzx_state, content_length, buf, length, block_len
     R0 = lzx_state.R0
     R1 = lzx_state.R1
     R2 = lzx_state.R2
-    content = []
+    content = [0 for i in xrange(block_length)]
     i = content_length
     while i < length:
         s = _get_main_tree_index(buf, _LZX_MAINTREE_TABLEBITS, main_tree, lzx_state._main_tree_elements) 
         buf.read_bits(main_tree_length[s])
         if s < _NUM_CHARS:
-            content.append(s)
-            i += 1
+            content[i] = s
         else:
             s -= _NUM_CHARS
             match_length = s & _LZX_NUM_PRIMARY_LENGTHS
             if match_length == _LZX_NUM_PRIMARY_LENGTHS:
                 match_footer = _get_main_tree_index(buf, _LZX_LENGTH_TABLEBITS, length_tree, _NUM_SECONDARY_LENGTHS)
-                buf.read_bits(main_tree_length[match_footer])
+                buf.read_bits(length_tree_length[match_footer])
                 match_length += match_footer
             match_length += _MIN_MATCH
             match_offset = s >> 3
@@ -163,7 +162,7 @@ def _decompress_verbatim_block(lzx_state, content_length, buf, length, block_len
                 if match_offset != 3:
                     extra = _EXTRA_BITS[match_offset]
                     l = buf.read_bits(extra)
-                    match_offset = _POSITION_BASE[matcho_ffset] - 2 + l
+                    match_offset = _POSITION_BASE[match_offset] - 2 + l
                 else:
                     match_offset = 1
                 R2 = R1
@@ -182,7 +181,7 @@ def _decompress_verbatim_block(lzx_state, content_length, buf, length, block_len
             run_dest = i
             run_src = run_dest - match_offset
             i += (match_length - 1)
-            if i > len:
+            if i > length:
                 break
             if run_src < 0:
                 if match_length + run_src <= 0:
@@ -199,7 +198,7 @@ def _decompress_verbatim_block(lzx_state, content_length, buf, length, block_len
                         content[run_dest] = prev_content[run_src]
                         run_dest += 1
                         run_src += 1
-                    match_length = matchlen + run_src - prev_content_length
+                    match_length = match_length + run_src - prev_content_length
                     run_src = 0
                     while match_length > 0:
                         match_length -= 1
@@ -210,13 +209,14 @@ def _decompress_verbatim_block(lzx_state, content_length, buf, length, block_len
                 while (run_src < 0) and (match_length > 0):
                     content[run_dest] = content[run_src + block_length]
                     run_dest += 1
-                    match_length -= 1
                     run_src += 1
+                    match_length -= 1
                 while match_length > 0:
                     match_length -= 1
                     content[run_dest] = content[run_src]
                     run_dest += 1
                     run_src += 1
+        i += 1
     if length == block_length:
         lzx_state.R0 = R0
         lzx_state.R1 = R1
@@ -318,8 +318,8 @@ def _create_pre_tree_table(length_table, table_length, bits, max_symbol):
                         if tmp[leaf] == 0:
                             tmp[(next_symbol << 1)] = 0
                             tmp[(next_symbol << 1) + 1] = 0
-                            next_symbol += 1
                             tmp[leaf] = next_symbol
+                            next_symbol += 1
                         leaf = tmp[leaf] << 1
                         if ((pos >> (15 - j)) & 1) != 0:
                             leaf += 1
