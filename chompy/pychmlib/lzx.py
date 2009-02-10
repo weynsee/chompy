@@ -96,6 +96,7 @@ def create_lzx_block(block_no, window, bytes, block_length, prev_block=None):
     else:
         prev_content = []
     buf = _BitBuffer(bytes)
+    block.content = [0 for i in xrange(block_length)]
     if not lzx_state.header_read:
         lzx_state.header_read = True
         if buf.read_bits(1) == 1:
@@ -116,7 +117,7 @@ def create_lzx_block(block_no, window, bytes, block_length, prev_block=None):
         else:
             length = block.content_length + lzx_state.block_remaining
             lzx_state.block_remaining = 0
-        block.content = _decompress_verbatim_block(lzx_state, block.content_length, buf, length, block_length, prev_content)
+        _decompress_verbatim_block(block.content, lzx_state, block.content_length, buf, length, block_length, prev_content)
         block.content_length = length
     return block
 
@@ -134,7 +135,7 @@ def _get_main_tree_index(buf, main_bits, tree_table, main_max_symbol):
                 break
     return z
 
-def _decompress_verbatim_block(lzx_state, content_length, buf, length, block_length, prev_content):
+def _decompress_verbatim_block(content, lzx_state, content_length, buf, length, block_length, prev_content):
     main_tree = lzx_state._main_tree_table
     main_tree_length = lzx_state._main_tree_length_table
     length_tree = lzx_state._length_tree_table
@@ -142,7 +143,6 @@ def _decompress_verbatim_block(lzx_state, content_length, buf, length, block_len
     R0 = lzx_state.R0
     R1 = lzx_state.R1
     R2 = lzx_state.R2
-    content = [0 for i in xrange(block_length)]
     i = content_length
     while i < length:
         s = _get_main_tree_index(buf, _LZX_MAINTREE_TABLEBITS, main_tree, lzx_state._main_tree_elements) 
@@ -221,7 +221,6 @@ def _decompress_verbatim_block(lzx_state, content_length, buf, length, block_len
         lzx_state.R0 = R0
         lzx_state.R1 = R1
         lzx_state.R2 = R2
-    return content
 
 def _create_length_tree_table(lzx_state, buf):
     pre_length_table = _create_pre_length_table(buf)
