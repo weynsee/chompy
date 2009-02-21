@@ -1,5 +1,7 @@
 from __future__ import generators, nested_scopes
-from struct import unpack
+from struct import unpack, pack
+
+import lzx
 
 _CHARSET_TABLE = { 
     0x0804:"gbk",
@@ -23,6 +25,8 @@ _RESET_TABLE = "::DataSpace/Storage/MSCompressed/Transform/{7FC28940-9D31-11D0-9
 _CONTENT = "::DataSpace/Storage/MSCompressed/Content"
 _LZXC_CONTROLDATA = "::DataSpace/Storage/MSCompressed/ControlData"
 
+_MAX_CACHED_BLOCKS = 100
+
 def chm(filename):
     return _CHMFile(filename)
 
@@ -44,6 +48,7 @@ class _CHMFile:
         self._lzx_block_offset = entry.offset + self.itsf.data_offset
         entry = self.resolve_object(_LZXC_CONTROLDATA)
         self.clcd = self._get_CLCD(entry)
+        self.lzx_cache = _LzxCacheManager()
     
     def enumerate_files(self, condition=None):
         pmgl = self._get_PMGL(self.itsp.first_pmgl_block)
@@ -64,6 +69,9 @@ class _CHMFile:
     
     def all_files(self):
         return self.enumerate_files()
+    
+    def retrieve_object(self, unit_info):
+        return unit_info.get_content()
         
     def resolve_object(self, filename):
         filename = filename.lower()
@@ -73,7 +81,7 @@ class _CHMFile:
             entries = self.pmgi.entries
             for name, block in entries:
                 if filename <= name:
-                    start = block
+                    start = block -1
                     break
             else:
                 start = len(entries) - 1
@@ -123,26 +131,109 @@ class _CHMFile:
 
     def close(self):
         self.file.close()
+        
+    __del__ = close
 
 class _Section:
     pass
 
 class UnitInfo:
     
-    def __init__(self, chm):
+    def __init__(self, chm, name=None, compressed = False, length = 0, offset = 0):
         self.chm = chm
+        self.name = name
+        self.compressed = compressed
+        self.length = length
+        self.offset = offset
     
     def get_content(self):
-        if self.compression == False:
-            return self.chm._get_segment(self.chm.itsf.data_offset + self.offset, self.length)
+        if self.compressed == False:
+            data = self.chm._get_segment(self.chm.itsf.data_offset + self.offset, self.length)
+            return data
         else:
             bytes_per_block = self.chm.lrt.block_length
             start_block = self.offset / bytes_per_block
             end_block = (self.offset + self.length) / bytes_per_block
             start_offset = self.offset % bytes_per_block
-            end_block = (self.offset + self.length) % bytes_per_block
+            end_offset = (self.offset + self.length) % bytes_per_block
             ini_block = start_block - start_block % self.chm.clcd.reset_interval
+            cache = self.chm.lzx_cache
+            data = [None for i in xrange(end_block - start_block + 1)]
+            start = 0
+            found = False
+            for lzx in cache:
+                for i in xrange(ini_block, start_block + 1):
+                    if lzx.block_no == i:
+                        if i > start:
+                            start = i
+                            block = lzx
+                    if start == start_block:
+                        found = True
+                        break
+            if not found:
+                start = ini_block
+                block = self._get_lzx_block(start)
+                cache.put(block)
+            while start <= end_block:
+                if start == start_block and start == end_block:
+                    data[0] = block.content[start_offset:end_offset]
+                    break
+                if start == start_block:
+                    data[0] = block.content[start_offset:]
+                if start > start_block and start < end_block:
+                    data[start - start_block] = block.content
+                if start == end_block:
+                    data[start - start_block] = block.content[0:end_offset]
+                    break
+                start += 1
+                if start % self.chm.clcd.reset_interval == 0:
+                    block = self._get_lzx_block(start)
+                else:
+                    block = self._get_lzx_block(start, block)
+                cache.put(block)
+            cache.housekeep()
+            byte_list = self._flatten(data)
+            return pack("B"*len(byte_list), *byte_list)
+    
+    def _get_lzx_segment(self, block):
+        addresses = self.chm.lrt.block_addresses
+        if block < len(addresses) - 1:
+            length = addresses[block + 1] - addresses[block]
+        else:
+            length = self.chm._lzx_block_length - addresses[block]
+        return self.chm._get_segment(self.chm._lzx_block_offset + addresses[block], length)
+    
+    def _get_lzx_block(self, block_no, prev_block=None):
+        return lzx.create_lzx_block(block_no, self.chm.clcd.window_size,
+                                    self._get_lzx_segment(block_no),
+                                    self.chm.lrt.block_length, prev_block)
         
+    def _flatten(self, data):
+        res = []
+        for item in data:
+            res.extend(item)
+        return res
+    
+    def __repr__(self):
+        return self.name
+
+class _LzxCacheManager:
+    
+    def __init__(self):
+        self.cache = []
+        
+    def __iter__(self):
+        for item in self.cache:
+            yield item
+        
+    def put(self, obj):
+        self.cache.append(obj)
+        
+    def housekeep(self):
+        cache_size = len(self.cache)
+        if cache_size > _MAX_CACHED_BLOCKS:
+            span = _MAX_CACHED_BLOCKS / 5 + cache_size - _MAX_CACHED_BLOCKS
+            del self.cache[:span]
 
 class SegmentError(Exception):
     
@@ -174,7 +265,7 @@ def _itsp(segment):
     section.last_pmgl_block = unpack(fmt, segment[4:40])
     return section
     
-def _pmgl(segment,chm):
+def _pmgl(segment, chm):
     _validate_header(segment, "PMGL")
     section = _Section()
     fmt = "<l 4x 4x i"
@@ -194,7 +285,7 @@ def _pmgl(segment,chm):
             ui.name = unicode(bytes[pointer:pointer + name_length], 'utf-8').lower()
             pointer += name_length
             iter_read += name_length
-            ui.compression, bytes_read = _get_encint(bytes, pointer);
+            ui.compressed, bytes_read = _get_encint(bytes, pointer);
             pointer += bytes_read
             iter_read += bytes_read
             ui.offset, bytes_read = _get_encint(bytes, pointer);
