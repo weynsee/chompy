@@ -1,7 +1,7 @@
 import unittest
 import struct
 
-from pychmlib.chm import chm, UnitInfo
+from chm import chm, UnitInfo
 from util import * 
 
 class CHMFile1Test(unittest.TestCase):
