@@ -34,10 +34,13 @@ class CHMServer:
                     filename = line[line.find("/"):line.find(" HTTP/")].lower()
                     extension = filename[filename.rfind("."):]
                     type = TYPES.get(extension, "text/html")
-                    ui = chm.resolve_object(filename)
-                    if ui:
-                        respond(ui.get_content(), cfile, type)
-                    else:
+                    try:
+                        ui = chm.resolve_object(filename)
+                        if ui:
+                            respond(ui.get_content(), cfile, type)
+                        else:
+                            respondNotFound(cfile)
+                    except:
                         respondError(cfile)
                 finally:
                     cfile.close()
@@ -51,13 +54,20 @@ class CHMServer:
             
 
 def respond(content, cfile, type="text/html"):
-    cfile.write("HTTP/1.0 200 OK\n")
-    cfile.write("Content-Type: "+type+"\n")
-    cfile.write("\n")
-    cfile.write(content)
+    while True:
+        line = cfile.readline().strip()
+        if line == '':
+            cfile.write("HTTP/1.0 200 OK\n")
+            cfile.write("Content-Type: "+type+"\n")
+            cfile.write("\n")
+            cfile.write(content)
+            break
     
 def respondError(cfile):
-    respond("File not found!", cfile)
+    respond("Page could not be displayed", cfile)
+    
+def respondNotFound(cfile):
+    respond("Page could not be found", cfile)
         
 if __name__ == '__main__':
     c = CHMServer()
