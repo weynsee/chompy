@@ -71,7 +71,7 @@ def respondNotFound(cfile):
         
 if __name__ == '__main__':
     c = CHMServer()
-    chm_file = chm("pychmlib/test/chm_files/iexplore.chm")
+    chm_file = chm("pychmlib/test/chm_files/CHM-example.chm")
     try:
         c.serve(chm_file)
     finally:
