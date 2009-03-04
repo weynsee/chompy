@@ -1,7 +1,7 @@
 import unittest
 import struct
 
-from chm import chm, UnitInfo
+from pychmlib.chm import chm, UnitInfo
 from util import * 
 
 class CHMFile1Test(unittest.TestCase):
@@ -140,11 +140,13 @@ class UnitInfoTest(unittest.TestCase):
         chm_file = chm("chm_files/iexplore.chm")
         assert_unit_info(self, chm_file, "/DLG_LMZL.htm")
         assert_unit_info(self, chm_file, "/minusHot.GIF")
-        
-    def save(self, filename, ui):
-        f = open("chm_files/"+filename,"wb")
-        f.write(ui.get_content())
-        f.close()
+
+    def test_content_3(self):
+        chm_file = chm("chm_files/iexplore.chm")
+        assert_unit_info(self, chm_file, "/browstip.htm")
+        assert_unit_info(self, chm_file, "/search.jpg")
+        assert_unit_info(self, chm_file, "/searchbutton.jpg")
+        assert_unit_info(self, chm_file, "/back.jpg")
 
 
 def assert_unit_info(test, chm_file, entry_name, test_file=None):

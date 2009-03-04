@@ -1,7 +1,7 @@
 import unittest
 import struct
 
-from lzx import create_lzx_block
+from pychmlib.lzx import create_lzx_block
 from util import *
 
 class LZXTest(unittest.TestCase):

@@ -17,15 +17,13 @@ _CHARSET_TABLE = {
     0x041F:"ISO-8859-9"       
 }
 
-DEBUG = True
+DEBUG = False
 
 _ITSF_MAX_LENGTH = 0x60
 _ITSP_MAX_LENGTH = 0x54
 _RESET_TABLE = "::DataSpace/Storage/MSCompressed/Transform/{7FC28940-9D31-11D0-9B27-00A0C91E9C7C}/InstanceData/ResetTable"
 _CONTENT = "::DataSpace/Storage/MSCompressed/Content"
 _LZXC_CONTROLDATA = "::DataSpace/Storage/MSCompressed/ControlData"
-
-_MAX_CACHED_BLOCKS = 100
 
 def chm(filename):
     return _CHMFile(filename)
@@ -48,7 +46,6 @@ class _CHMFile:
         self._lzx_block_offset = entry.offset + self.itsf.data_offset
         entry = self.resolve_object(_LZXC_CONTROLDATA)
         self.clcd = self._get_CLCD(entry)
-        self.lzx_cache = _LzxCacheManager()
     
     def enumerate_files(self, condition=None):
         pmgl = self._get_PMGL(self.itsp.first_pmgl_block)
@@ -157,23 +154,9 @@ class UnitInfo:
             start_offset = self.offset % bytes_per_block
             end_offset = (self.offset + self.length) % bytes_per_block
             ini_block = start_block - start_block % self.chm.clcd.reset_interval
-            cache = self.chm.lzx_cache
             data = [None for i in xrange(end_block - start_block + 1)]
-            start = 0
-            found = False
-            for lzx in cache:
-                for i in xrange(ini_block, start_block + 1):
-                    if lzx.block_no == i:
-                        if i > start:
-                            start = i
-                            block = lzx
-                    if start == start_block:
-                        found = True
-                        break
-            if not found:
-                start = ini_block
-                block = self._get_lzx_block(start)
-                cache.put(block)
+            start = ini_block
+            block = self._get_lzx_block(start)
             while start <= end_block:
                 if start == start_block and start == end_block:
                     data[0] = block.content[start_offset:end_offset]
@@ -190,8 +173,6 @@ class UnitInfo:
                     block = self._get_lzx_block(start)
                 else:
                     block = self._get_lzx_block(start, block)
-                cache.put(block)
-            cache.housekeep()
             byte_list = self._flatten(data)
             return pack("B"*len(byte_list), *byte_list)
     
@@ -216,24 +197,6 @@ class UnitInfo:
     
     def __repr__(self):
         return self.name
-
-class _LzxCacheManager:
-    
-    def __init__(self):
-        self.cache = []
-        
-    def __iter__(self):
-        for item in self.cache:
-            yield item
-        
-    def put(self, obj):
-        self.cache.append(obj)
-        
-    def housekeep(self):
-        cache_size = len(self.cache)
-        if cache_size > _MAX_CACHED_BLOCKS:
-            span = _MAX_CACHED_BLOCKS / 5 + cache_size - _MAX_CACHED_BLOCKS
-            del self.cache[:span]
 
 class SegmentError(Exception):
     
