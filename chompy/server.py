@@ -19,13 +19,13 @@ class CHMServer:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket = sock
-        self.isRunning = False
+        self.run = False
         
     def serve(self, chm):
         self.socket.bind((self.hostname, self.port))
         self.socket.listen(1)
-        self.isRunning = True
-        while True:
+        self.run = True
+        while self.run:
             csock, caddr = self.socket.accept()
             try:
                 cfile = csock.makefile('rw', 0)
@@ -37,11 +37,11 @@ class CHMServer:
                     try:
                         ui = chm.resolve_object(filename)
                         if ui:
-                            respond(ui.get_content(), cfile, type)
+                            self.respond(ui.get_content(), cfile, type)
                         else:
-                            respondNotFound(cfile)
+                            self.respondNotFound(cfile)
                     except:
-                        respondError(cfile)
+                        self.respondError(cfile)
                 finally:
                     cfile.close()
             finally:
@@ -49,29 +49,30 @@ class CHMServer:
         
     def shutdown(self):
         print "shutting the server down"
-        if self.isRunning:
+        if self.run:
+            self.run = False
             self.socket.close()
             
-
-def respond(content, cfile, type="text/html"):
-    while True:
-        line = cfile.readline().strip()
-        if line == '':
-            cfile.write("HTTP/1.0 200 OK\n")
-            cfile.write("Content-Type: "+type+"\n")
-            cfile.write("\n")
-            cfile.write(content)
-            break
+    def respond(self, content, cfile, type="text/html"):
+        while True:
+            line = cfile.readline().strip()
+            if line == '':
+                cfile.write("HTTP/1.0 200 OK\n")
+                cfile.write("Content-Type: " + type + "\n")
+                cfile.write("\n")
+                cfile.write(content)
+                break
     
-def respondError(cfile):
-    respond("Page could not be displayed", cfile)
+    def respondError(self, cfile):
+        self.respond("Page could not be displayed", cfile)
     
-def respondNotFound(cfile):
-    respond("Page could not be found", cfile)
+    def respondNotFound(self, cfile):
+        self.respond("Page could not be found", cfile)
+            
         
 if __name__ == '__main__':
     c = CHMServer()
-    chm_file = chm("pychmlib/test/chm_files/CHM-example.chm")
+    chm_file = chm("pychmlib/test/chm_files/iexplore.chm")
     try:
         c.serve(chm_file)
     finally:

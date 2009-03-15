@@ -78,7 +78,7 @@ class _CHMFile:
             entries = self.pmgi.entries
             for name, block in entries:
                 if filename <= name:
-                    start = block -1
+                    start = block - 1
                     break
             else:
                 start = len(entries) - 1
@@ -96,7 +96,7 @@ class _CHMFile:
     def _get_PMGL(self, start):
         if (start == - 1):
             return None
-        return _pmgl(self._get_segment(self._dir_offset + start * self.itsp.dir_block_length, self.itsp.dir_block_length), self)  
+        return self._pmgl(self._get_segment(self._dir_offset + start * self.itsp.dir_block_length, self.itsp.dir_block_length))  
         
     def _get_encoding(self):
         lang_id = self.itsf.lang_id
@@ -104,27 +104,132 @@ class _CHMFile:
     
     def _get_PMGI(self):
         if self.itsp.index_depth == 2:
-            return _pmgi(self._get_segment(self._dir_offset + self.itsp.index_root * 
+            return self._pmgi(self._get_segment(self._dir_offset + self.itsp.index_root * 
                                           self.itsp.dir_block_length, self.itsp.dir_block_length))
         else:
             return None
         
     def _get_LRT(self, entry):
-        return _lrt(self._get_segment(self.itsf.data_offset + entry.offset, entry.length))
+        return self._lrt(self._get_segment(self.itsf.data_offset + entry.offset, entry.length))
     
     def _get_CLCD(self, entry):
-        return _clcd(self._get_segment(self.itsf.data_offset + entry.offset, entry.length))
+        return self._clcd(self._get_segment(self.itsf.data_offset + entry.offset, entry.length))
         
     def _get_ITSF(self):
-        return _itsf(self._get_segment(0, _ITSF_MAX_LENGTH))
+        return self._itsf(self._get_segment(0, _ITSF_MAX_LENGTH))
     
     def _get_ITSP(self):
         offset = self.itsf.dir_offset
-        return _itsp(self._get_segment(offset, _ITSP_MAX_LENGTH))
+        return self._itsp(self._get_segment(offset, _ITSP_MAX_LENGTH))
     
     def _get_segment(self, start, length):
         self.file.seek(start)
         return self.file.read(length)
+    
+    def _itsf(self, segment):
+        section = _Section()
+        fmt = "<i i 4x 4x l 16x 16x 16x l 4x l 4x"
+        section.version, section.length, section.lang_id, \
+        section.dir_offset, section.dir_length = unpack(fmt, segment[4:88])
+        if section.version == 3:
+            section.data_offset, = unpack("<l 4x", segment[88:96])
+        else:
+            section.data_offset = section.dir_offset + section.dir_length
+        return section
+    
+    def _itsp(self, segment):
+        section = _Section()
+        fmt = "<i i 4x l 4x i i i i"
+        section.version, section.length, section.dir_block_length, \
+        section.index_depth, section.index_root, section.first_pmgl_block, \
+        section.last_pmgl_block = unpack(fmt, segment[4:40])
+        return section
+        
+    def _pmgl(self, segment):
+        section = _Section()
+        fmt = "<l 4x 4x i"
+        free_space , section.next_block = unpack(fmt, segment[4:20])
+        br = len(segment) - 20 - free_space
+        by = segment[20:20 + br]
+        def entries():
+            pointer = 0
+            bytes = by
+            bytes_remaining = br
+            while bytes_remaining > 0:
+                iter_read = 0
+                ui = UnitInfo(self)
+                name_length, bytes_read = self._get_encint(bytes, pointer);
+                pointer += bytes_read
+                iter_read += bytes_read
+                ui.name = unicode(bytes[pointer:pointer + name_length], 'utf-8').lower()
+                pointer += name_length
+                iter_read += name_length
+                ui.compressed, bytes_read = self._get_encint(bytes, pointer);
+                pointer += bytes_read
+                iter_read += bytes_read
+                ui.offset, bytes_read = self._get_encint(bytes, pointer);
+                pointer += bytes_read
+                iter_read += bytes_read
+                ui.length, bytes_read = self._get_encint(bytes, pointer);
+                pointer += bytes_read
+                iter_read += bytes_read
+                bytes_remaining -= iter_read
+                yield ui
+        section.entries = entries
+        return section
+        
+    def _pmgi(self, segment):
+        section = _Section()
+        fmt = "<l"
+        free_space = unpack(fmt, segment[4:8])[0] 
+        bytes_remaining = len(segment) - 8 - free_space
+        bytes = segment[8:8 + bytes_remaining]
+        pointer = 0
+        entries = []
+        while bytes_remaining > 0:
+            iter_read = 0
+            name_length, bytes_read = self._get_encint(bytes, pointer);
+            pointer += bytes_read
+            iter_read += bytes_read
+            name = unicode(bytes[pointer:pointer + name_length], 'utf-8').lower()
+            pointer += name_length
+            iter_read += name_length
+            block, bytes_read = self._get_encint(bytes, pointer);
+            pointer += bytes_read
+            iter_read += bytes_read
+            bytes_remaining -= iter_read
+            entries.append((name, block))
+        section.entries = entries
+        return section
+    
+    def _lrt(self, segment):
+        section = _Section()
+        blocks = (len(segment) - 40) / 8
+        fmt = "<32x l 4x " + ("l 4x " * blocks) 
+        result = unpack(fmt, segment)
+        section.block_length = result[0]
+        section.block_addresses = result[1:]
+        return section
+    
+    def _clcd(self, segment):
+        section = _Section()
+        fmt = "<4x 4x l l l 4x 4x" 
+        section.version, section.reset_interval, section.window_size = unpack(fmt, segment)
+        if section.version == 2:
+            section.window_size = section.window_size * 0x8000;
+        return section
+
+    def _get_encint(self, bytes, start):
+        pointer = start
+        byte = ord(bytes[pointer])
+        pointer += 1
+        bi = 0
+        while byte > 127:
+            bi = (bi << 7) + (byte & 0x7f)
+            byte = ord(bytes[pointer])
+            pointer += 1
+        bi = (bi << 7) + (byte & 0x7f)
+        return bi, pointer - start
 
     def close(self):
         self.file.close()
@@ -136,7 +241,7 @@ class _Section:
 
 class UnitInfo:
     
-    def __init__(self, chm, name=None, compressed = False, length = 0, offset = 0):
+    def __init__(self, chm, name=None, compressed=False, length=0, offset=0):
         self.chm = chm
         self.name = name
         self.compressed = compressed
@@ -174,7 +279,7 @@ class UnitInfo:
                 else:
                     block = self._get_lzx_block(start, block)
             byte_list = self._flatten(data)
-            return pack("B"*len(byte_list), *byte_list)
+            return pack("B" * len(byte_list), *byte_list)
     
     def _get_lzx_segment(self, block):
         addresses = self.chm.lrt.block_addresses
@@ -204,118 +309,4 @@ class SegmentError(Exception):
         self.segment_type = segment_type
         
     def __str__(self):
-        return "Invalid segment (Expected %s)" % self.segment_type
-
-
-def _itsf(segment):
-    _validate_header(segment, "ITSF")
-    section = _Section()
-    fmt = "<i i 4x 4x l 16x 16x 16x l 4x l 4x"
-    section.version, section.length, section.lang_id, \
-    section.dir_offset, section.dir_length = unpack(fmt, segment[4:88])
-    if section.version == 3:
-        section.data_offset, = unpack("<l 4x", segment[88:96])
-    else:
-        section.data_offset = section.dir_offset + section.dir_length
-    return section
-    
-def _itsp(segment):
-    _validate_header(segment, "ITSP")
-    section = _Section()
-    fmt = "<i i 4x l 4x i i i i"
-    section.version, section.length, section.dir_block_length, \
-    section.index_depth, section.index_root, section.first_pmgl_block, \
-    section.last_pmgl_block = unpack(fmt, segment[4:40])
-    return section
-    
-def _pmgl(segment, chm):
-    _validate_header(segment, "PMGL")
-    section = _Section()
-    fmt = "<l 4x 4x i"
-    free_space , section.next_block = unpack(fmt, segment[4:20])
-    br = len(segment) - 20 - free_space
-    by = segment[20:20 + br]
-    def entries():
-        pointer = 0
-        bytes = by
-        bytes_remaining = br
-        while bytes_remaining > 0:
-            iter_read = 0
-            ui = UnitInfo(chm)
-            name_length, bytes_read = _get_encint(bytes, pointer);
-            pointer += bytes_read
-            iter_read += bytes_read
-            ui.name = unicode(bytes[pointer:pointer + name_length], 'utf-8').lower()
-            pointer += name_length
-            iter_read += name_length
-            ui.compressed, bytes_read = _get_encint(bytes, pointer);
-            pointer += bytes_read
-            iter_read += bytes_read
-            ui.offset, bytes_read = _get_encint(bytes, pointer);
-            pointer += bytes_read
-            iter_read += bytes_read
-            ui.length, bytes_read = _get_encint(bytes, pointer);
-            pointer += bytes_read
-            iter_read += bytes_read
-            bytes_remaining -= iter_read
-            yield ui
-    section.entries = entries
-    return section
-    
-def _pmgi(segment):
-    _validate_header(segment, "PMGI")
-    section = _Section()
-    fmt = "<l"
-    free_space = unpack(fmt, segment[4:8])[0] 
-    bytes_remaining = len(segment) - 8 - free_space
-    bytes = segment[8:8 + bytes_remaining]
-    pointer = 0
-    entries = []
-    while bytes_remaining > 0:
-        iter_read = 0
-        name_length, bytes_read = _get_encint(bytes, pointer);
-        pointer += bytes_read
-        iter_read += bytes_read
-        name = unicode(bytes[pointer:pointer + name_length], 'utf-8').lower()
-        pointer += name_length
-        iter_read += name_length
-        block, bytes_read = _get_encint(bytes, pointer);
-        pointer += bytes_read
-        iter_read += bytes_read
-        bytes_remaining -= iter_read
-        entries.append((name, block))
-    section.entries = entries
-    return section
-
-def _lrt(segment):
-    section = _Section()
-    blocks = (len(segment) - 40) / 8
-    fmt = "<32x l 4x " + ("l 4x " * blocks) 
-    result = unpack(fmt, segment)
-    section.block_length = result[0]
-    section.block_addresses = result[1:]
-    return section
-
-def _clcd(segment):
-    section = _Section()
-    fmt = "<4x 4x l l l 4x 4x" 
-    section.version, section.reset_interval, section.window_size = unpack(fmt, segment)
-    if section.version == 2:
-        section.window_size = section.window_size * 0x8000;
-    return section
-    
-def _validate_header(segment, type):
-    if DEBUG and segment[:len(type)] != type:
-        raise SegmentError(type)
-
-def _get_encint(bytes, start):
-    pointer = start
-    byte = ord(bytes[pointer])
-    pointer += 1
-    bi = 0
-    while byte > 127:
-        bi = (bi << 7) + (byte & 0x7f)
-        byte = ord(bytes[pointer])
-        pointer += 1
-    bi = (bi << 7) + (byte & 0x7f)
-    return bi, pointer - start 
+        return "Invalid segment (Expected %s)" % self.segment_type 
