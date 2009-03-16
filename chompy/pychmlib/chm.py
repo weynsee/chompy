@@ -60,6 +60,15 @@ class _CHMFile:
                 return True
         return self.enumerate_files(content_only)
     
+    def get_hhc(self):
+        def hhc_only(ui):
+            name = ui.name
+            if name.endswith(".hhc"):
+                return True
+        for content in self.enumerate_files(hhc_only):
+            return content
+        return None
+    
     def all_files(self):
         return self.enumerate_files()
     

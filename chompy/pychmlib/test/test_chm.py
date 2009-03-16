@@ -50,6 +50,10 @@ class CHMFile1Test(unittest.TestCase):
         self.assertEquals(83,len(list(self.chm.all_files())))
         self.assertEquals(53,len(list(self.chm.content_files())))
         
+    def test_get_hhc(self):
+        hhc = self.chm.get_hhc()
+        self.assertEquals("/chm-example.hhc",hhc.name)
+        
     def test_unit_info(self):
         ui = self.chm.resolve_object("::DataSpace/Storage/MSCompressed/Transform/{7FC28940-9D31-11D0-9B27-00A0C91E9C7C}/InstanceData/ResetTable")
         self.assertEquals(168,len(ui.get_content()))
@@ -110,6 +114,10 @@ class CHMFile2Test(unittest.TestCase):
     def test_enumeration(self):
         self.assertEquals(246,len(list(self.chm.all_files())))
         self.assertEquals(218,len(list(self.chm.content_files())))
+        
+    def test_get_hhc(self):
+        hhc = self.chm.get_hhc()
+        self.assertEquals("/iexplore.hhc",hhc.name)
         
     def test_resolve_object(self):
         assert_unit_info(self, self.chm, "/lock.jpg")
