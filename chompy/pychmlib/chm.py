@@ -17,16 +17,12 @@ _CHARSET_TABLE = {
     0x041F:"ISO-8859-9"       
 }
 
-DEBUG = False
-
 _ITSF_MAX_LENGTH = 0x60
 _ITSP_MAX_LENGTH = 0x54
 _RESET_TABLE = "::DataSpace/Storage/MSCompressed/Transform/{7FC28940-9D31-11D0-9B27-00A0C91E9C7C}/InstanceData/ResetTable"
 _CONTENT = "::DataSpace/Storage/MSCompressed/Content"
 _LZXC_CONTROLDATA = "::DataSpace/Storage/MSCompressed/ControlData"
 
-def chm(filename):
-    return _CHMFile(filename)
 
 class _CHMFile:
     "a class to manage access to CHM files"
@@ -302,6 +298,8 @@ class UnitInfo:
     
     def __repr__(self):
         return self.name
+
+chm = _CHMFile
 
 class SegmentError(Exception):
     
