@@ -1,6 +1,5 @@
 from __future__ import nested_scopes
 from pychmlib.chm import chm
-from hhc import parse
 
 import server
 import appuifw
@@ -8,6 +7,7 @@ import e32
 import filebrowser
 import os
 import e32dbm
+import hhc
 
 CONF_FILE = u"E:\\Data\\chompy\\chompy.cfg"
 INIT_FILE = u"E:\\Data\\chompy\\tmp.html"
@@ -95,17 +95,19 @@ class Chompy:
                 return
             hhc_file = chm_file.get_hhc()
             if hhc_file:
-                server.start_server(chm_file)
-                contents = parse(hhc_file.get_content())
-                viewer = HHCViewer(contents, chm_file.encoding)
-                viewer.show()
-                server.stop_server()
-                self.quit()
+                contents = hhc.parse(hhc_file.get_content())
+                encoding = chm_file.encoding 
             else:
                 appuifw.note(u"CHM File contains no HHC file", "error")
+                return
         finally:
             if chm_file:
-                chm_file.close()            
+                chm_file.close()
+        server.start_server(filename)
+        viewer = HHCViewer(contents, encoding)
+        viewer.show()
+        server.stop_server()
+        self.quit()
         
     def remove(self):
         index = self.lb.current()

@@ -17,8 +17,8 @@ _SENTINEL = "STOP"
 
 SERVER_LOCK = thread.allocate_lock()
 
-def start_server(chm):
-    thread.start_new_thread(_serve_chm, (chm, DEFAULT_HOST, DEFAULT_PORT))
+def start_server(filename):
+    thread.start_new_thread(_serve_chm, (filename, DEFAULT_HOST, DEFAULT_PORT))
     
 def stop_server():
     sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -29,41 +29,47 @@ def stop_server():
     SERVER_LOCK.acquire() #block method until we are sure server stops
     SERVER_LOCK.release()
 
-def _serve_chm(chm, hostname, port):
+def _serve_chm(filename, hostname, port):
     SERVER_LOCK.acquire()
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((hostname, port))
-    sock.listen(1)
-    while 1:
-        csock, caddr = sock.accept()
+    try:
+        chm_file = chm(filename)
         try:
-            rfile = csock.makefile('rb', 0)
-            try:
-                line = rfile.readline().strip()
-                if line == _SENTINEL:
-                    break
-                filename = line[line.find("/"):line.find(" HTTP/")].lower()
-                extension = filename[filename.rfind("."):]
-                type = TYPES.get(extension, "text/html")
-            finally:
-                rfile.close()
-                
-            wfile = csock.makefile('wb', 0)
-            try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind((hostname, port))
+            sock.listen(1)
+            while 1:
+                csock, caddr = sock.accept()
                 try:
-                    ui = chm.resolve_object(filename)
-                    if ui:
-                        _respond(ui.get_content(), wfile, type)
-                    else:
-                        _respond_not_found(wfile)
-                except:
-                    _respond_error(wfile)
-            finally:
-                wfile.close()
+                    rfile = csock.makefile('rb', 0)
+                    try:
+                        line = rfile.readline().strip()
+                        if line == _SENTINEL:
+                            break
+                        filename = line[line.find("/"):line.find(" HTTP/")].lower()
+                        extension = filename[filename.rfind("."):]
+                        type = TYPES.get(extension, "text/html")
+                    finally:
+                        rfile.close()
+                        
+                    wfile = csock.makefile('wb', 0)
+                    try:
+                        try:
+                            ui = chm_file.resolve_object(filename)
+                            if ui:
+                                _respond(ui.get_content(), wfile, type)
+                            else:
+                                _respond_not_found(wfile)
+                        except:
+                            _respond_error(wfile)
+                    finally:
+                        wfile.close()
+                finally:
+                    csock.close()
+            sock.close()
         finally:
-            csock.close()
-    sock.close()
-    SERVER_LOCK.release()
+            chm_file.close()
+    finally:
+        SERVER_LOCK.release()
     print "server shutdown"
     
 def _respond(content, cfile, type="text/html"):
@@ -83,8 +89,7 @@ if __name__ == '__main__':
     import sys
     filenames = sys.argv[1:]
     if filenames:
-        chm_file = chm(filenames.pop())
-        start_server(chm_file)
+        start_server(filenames.pop())
         #serve chm files for 30 seconds
         import time
         time.sleep(30)
