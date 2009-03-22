@@ -31,6 +31,7 @@ class Chompy:
         self.app_lock = e32.Ao_lock()
         self.fb = filebrowser.Filebrowser()
         self.load_recent()
+        self.hhc_callback = e32.ao_callgate(self.load_hhc_viewer)
         
     def load_recent(self):
         try:
@@ -57,25 +58,30 @@ class Chompy:
         if selected:
             file = unicode(selected)
             if file not in self.recent:
-                if not self.recent:
-                    #if list is currently displaying file selection option, reconstruct the list
-                    self.recent.append(file)
-                    self.create_listbox()
-                else:
-                    self.recent.append(file)
-                    self.update_list(len(self.recent) - 1)
+                self.recent.append(file)
+                self.update_list(len(self.recent) - 1)    
             self.open(file)
         self.refresh()
         
     def to_display(self, filename):
         return unicode(os.path.basename(filename))
         
-    def update_list(self, selected_index):
-        recent = map(self.to_display, self.recent)
-        self.lb.set_list(recent, selected_index)
+    def update_list(self, selected_index=None):
+        if self.recent:
+            self.lb.set_list(self.get_list(), selected_index)
+        else:
+            self.lb.set_list(self.get_list())
+            
+    def get_list(self):
+        if self.recent:
+            return map(self.to_display, self.recent)
+        else:
+            return [u"Select file"]
         
-    def lb_observe(self, index, no_recent=False):
-        if no_recent:
+    def lb_observe(self, index=None):
+        if index is None:
+            index = self.lb.current()
+        if not self.recent:
             self.browse()
         else:
             self.open(self.recent[index])
@@ -83,45 +89,41 @@ class Chompy:
     def open(self, filename=None):
         if filename is None:
             filename = self.recent[self.lb.current()]
-        self.load_hhc_viewer(filename)
+        server.start_server(filename, self.hhc_callback)
+        self.stall()
         
-    def load_hhc_viewer(self, filename):
-        chm_file = None
-        try:
-            try:
-                chm_file = chm(filename)
-            except:
-                appuifw.note(u"Error reading file", "error")
-                return
-            hhc_file = chm_file.get_hhc()
-            if hhc_file:
-                contents = hhc.parse(hhc_file.get_content())
-                encoding = chm_file.encoding 
-            else:
+    def load_hhc_viewer(self, filename=None, contents=None, encoding=None, error=None):
+        if not error:
+            viewer = HHCViewer(filename, contents, encoding)
+            viewer.show()
+            server.stop_server() #if there is an error, no need to stop server
+            self.quit()
+        else:
+            if error == server.ERR_INVALID_CHM:
+                appuifw.note(u"CHM File cannot be read", "error")
+            elif error == server.ERR_NO_HHC:
                 appuifw.note(u"CHM File contains no HHC file", "error")
-                return
-        finally:
-            if chm_file:
-                chm_file.close()
-        server.start_server(filename)
-        viewer = HHCViewer(contents, encoding)
-        viewer.show()
-        server.stop_server()
-        self.quit()
+            self.refresh()
         
     def remove(self):
         index = self.lb.current()
         del self.recent[index]
-        if len(self.recent) > 0:
-            self.update_list(index)
-        else:
-            self.create_listbox()
-            self.refresh()
+        self.update_list(index)
     
     def quit(self):
         self.app_lock.signal()
         self.save_recent()
         self.lb = None
+        self.hhc_callback = None
+        
+    def stall(self):
+        appuifw.app.menu = []
+        appuifw.app.title = u"Loading..."
+        text = appuifw.Text()
+        text.style = appuifw.STYLE_ITALIC
+        text.set(u"Please wait while CHM file is being read...")
+        appuifw.app.body = text
+        appuifw.app.exit_key_handler = None
         
     def refresh(self):
         menu_list = [(u"Browse for file", self.browse), (u"Exit", self.quit)]
@@ -133,28 +135,15 @@ class Chompy:
         appuifw.app.title = u"chompy"
         appuifw.app.body = self.lb
     
-    def create_listbox(self):
-        self.lb = None
-        if self.recent:
-            docs = map(self.to_display, self.recent)
-            no_recent_docs = False
-        else:
-            docs = [u"Select file"]
-            no_recent_docs = True
-        def list_callback(index=None):
-            if index is None:
-                index = self.lb.current()
-            self.lb_observe(index, no_recent_docs)
-        self.lb = appuifw.Listbox(docs, list_callback)
-    
     def show(self):
-        self.create_listbox()
+        self.lb = appuifw.Listbox(self.get_list(), self.lb_observe)
         self.refresh()
         self.app_lock.wait()
 
 class HHCViewer:
     
-    def __init__(self, hhc_obj, encoding):
+    def __init__(self, filename, hhc_obj, encoding):
+        self.title = os.path.basename(filename)
         self.current_context = hhc_obj
         self.encoding = encoding
         self.app_lock = e32.Ao_lock()
@@ -174,7 +163,7 @@ class HHCViewer:
         else:
             selected_index = index
             if not self.current_context.is_root:
-                selected_index += 1
+                selected_index -= 1
             selected = self.current_context.children[selected_index]
         if selected.is_inner_node:
             self.current_context = selected
@@ -194,8 +183,8 @@ class HHCViewer:
         lock.wait()
             
     def quit(self):
-        self.lb = None
         self.app_lock.signal()
+        self.lb = None
         
     def open(self):
         self.lb_observe()
@@ -203,7 +192,7 @@ class HHCViewer:
     def refresh(self):
         appuifw.app.menu = [(u"Open", self.open), (u"Exit", self.quit)]
         appuifw.app.exit_key_handler = self.quit
-        appuifw.app.title = u"chompy"
+        appuifw.app.title = self.title
         appuifw.app.body = self.lb
         
     def show(self):

@@ -33,18 +33,23 @@ class _CHMFile:
         self._parse_chm()
         
     def _parse_chm(self):
-        self.itsf = self._get_ITSF()
-        self.encoding = self._get_encoding()
-        self.itsp = self._get_ITSP()
-        self._dir_offset = self.itsf.dir_offset + self.itsp.length;
-        self.pmgi = self._get_PMGI()
-        entry = self.resolve_object(_RESET_TABLE)
-        self.lrt = self._get_LRT(entry)
-        entry = self.resolve_object(_CONTENT)
-        self._lzx_block_length = entry.length
-        self._lzx_block_offset = entry.offset + self.itsf.data_offset
-        entry = self.resolve_object(_LZXC_CONTROLDATA)
-        self.clcd = self._get_CLCD(entry)
+        try:
+            self.itsf = self._get_ITSF()
+            self.encoding = self._get_encoding()
+            self.itsp = self._get_ITSP()
+            self._dir_offset = self.itsf.dir_offset + self.itsp.length;
+            self.pmgi = self._get_PMGI()
+            entry = self.resolve_object(_RESET_TABLE)
+            self.lrt = self._get_LRT(entry)
+            entry = self.resolve_object(_CONTENT)
+            self._lzx_block_length = entry.length
+            self._lzx_block_offset = entry.offset + self.itsf.data_offset
+            entry = self.resolve_object(_LZXC_CONTROLDATA)
+            self.clcd = self._get_CLCD(entry)
+        except:
+            #in case of errors, close file as it will not be used again
+            self.file.close()
+            raise
         
     def enumerate_files(self, condition=None):
         pmgl = self._get_PMGL(self.itsp.first_pmgl_block)
