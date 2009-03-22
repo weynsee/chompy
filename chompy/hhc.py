@@ -25,7 +25,7 @@ class HHCParser(HTMLParser):
                 self._object.is_root = True
             else:
                 #add the object to the top of the stack's HHCObject
-                self._contexts[-1].add_child(self._object)
+                self._contexts[ - 1].add_child(self._object)
         elif tag == 'ul':
             self._contexts.pop()
         
@@ -36,6 +36,7 @@ class HHCObject:
         self.is_inner_node = False #means this node has leaves
         self.is_root = False
         self.parent = None
+        self.name = None
         
     def _set_as_inner_node(self):
         self.is_inner_node = True
@@ -58,12 +59,15 @@ if __name__ == "__main__":
     filenames = sys.argv[1:]
     if filenames:
         chm_file = chm(filenames.pop())
-        contents = parse(chm_file.get_hhc().get_content())
-        for i in contents.children:
-            print i.name
-            if i.is_inner_node:
-                for j in i.children:
-                    print "  ", j.name 
+        hhc_file_contents = chm_file.get_hhc().get_content()
+        contents = parse(hhc_file_contents)
+        def recur_print(content, spaces=0):
+            if spaces > 0:
+                print " " * spaces + content.name
+            if content.is_inner_node:
+                for i in content.children:
+                    recur_print(i, spaces + 2)
+        recur_print(contents) 
         chm_file.close()
     else:
         print "Please provide a CHM file as parameter"

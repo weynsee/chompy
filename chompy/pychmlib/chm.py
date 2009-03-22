@@ -30,6 +30,9 @@ class _CHMFile:
     def __init__(self, filename):
         self.filename = filename
         self.file = open(filename, "rb")
+        self._parse_chm()
+        
+    def _parse_chm(self):
         self.itsf = self._get_ITSF()
         self.encoding = self._get_encoding()
         self.itsp = self._get_ITSP()
@@ -42,7 +45,7 @@ class _CHMFile:
         self._lzx_block_offset = entry.offset + self.itsf.data_offset
         entry = self.resolve_object(_LZXC_CONTROLDATA)
         self.clcd = self._get_CLCD(entry)
-    
+        
     def enumerate_files(self, condition=None):
         pmgl = self._get_PMGL(self.itsp.first_pmgl_block)
         while pmgl:
@@ -308,12 +311,4 @@ class UnitInfo:
     def __repr__(self):
         return self.name
 
-chm = _CHMFile
-
-class SegmentError(Exception):
-    
-    def __init__(self, segment_type):
-        self.segment_type = segment_type
-        
-    def __str__(self):
-        return "Invalid segment (Expected %s)" % self.segment_type 
+chm = _CHMFile 
