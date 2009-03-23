@@ -16,7 +16,7 @@ SEPARATOR = u"/"
 INIT_HTML = u"""<html>
 <body>
 <script type="text/javascript">
-document.location = "http://""" + unicode(server.DEFAULT_HOST) + """:""" + unicode(server.DEFAULT_PORT) + """/%s"
+document.location = "http://localhost:""" + unicode(server.PORT) + """/%s"
 </script>
 </body>
 </html>
@@ -89,14 +89,14 @@ class Chompy:
     def open(self, filename=None):
         if filename is None:
             filename = self.recent[self.lb.current()]
-        server.start_server(filename, self.hhc_callback)
+        server.start(filename, self.hhc_callback)
         self.stall()
         
     def load_hhc_viewer(self, filename=None, contents=None, encoding=None, error=None):
         if not error:
             viewer = HHCViewer(filename, contents, encoding)
             viewer.show()
-            server.stop_server() #if there is an error, no need to stop server
+            server.stop() #if there is an error, no need to stop server
             self.quit()
         else:
             if error == server.ERR_INVALID_CHM:
@@ -174,7 +174,6 @@ class HHCViewer:
     
     def load_in_viewer(self, entry):
         f = file(INIT_FILE, "w")
-        print "looking up", (INIT_HTML % entry.local)
         f.write(INIT_HTML % entry.local)
         f.close()
         lock = e32.Ao_lock()
