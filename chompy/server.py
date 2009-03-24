@@ -74,7 +74,7 @@ def _serve_chm_forever(chm_file, hostname, port):
             while 1:
                 csock, caddr = sock.accept()
                 try:
-                    rfile = csock.makefile('rb')
+                    rfile = csock.makefile('rb', -1)
                     try:
                         line = rfile.readline().strip()
                         if line == _SENTINEL:
@@ -84,7 +84,7 @@ def _serve_chm_forever(chm_file, hostname, port):
                         type = TYPES.get(extension, "text/html")
                     finally:
                         rfile.close()    
-                    wfile = csock.makefile('wb', 16384)
+                    wfile = csock.makefile('wb', -1)
                     try:
                         try:
                             ui = chm_file.resolve_object(filename)
