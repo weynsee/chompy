@@ -1,5 +1,9 @@
 from HTMLParser import HTMLParser
 
+import re
+
+_ESCAPE_PARAM_VALUE = re.compile(r'\s<param name=".*" value="(.*"+.*)">\s')
+
 class HHCParser(HTMLParser):
     
     def __init__(self):
@@ -47,7 +51,16 @@ class HHCObject:
         obj.parent = self
 
 
+def _sanitize(html):
+    return re.sub(_ESCAPE_PARAM_VALUE, _replace_param, html)
+
+def _replace_param(match_obj):
+    param = match_obj.group(0)
+    value = match_obj.group(1)
+    return param.replace(value, value.replace('"',"&quot;"))
+
 def parse(html):
+    html = _sanitize(html)
     parser = HHCParser()
     parser.feed(html)
     parser.close()
