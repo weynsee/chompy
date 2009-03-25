@@ -1,9 +1,10 @@
+from __future__ import nested_scopes
+from pychmlib.chm import chm
+
 import socket
 import thread
 import hhc
 import errno
-
-from pychmlib.chm import chm
 
 HOST = '127.0.0.1'
 PORT = 8081
@@ -15,24 +16,25 @@ TYPES = {".gif":"image/gif",
          ".htm":"text/html"
          }
 
-_SENTINEL = "STOP"
-
 ERR_NO_HHC = 1
 ERR_INVALID_CHM = 2
 
 LOCK = thread.allocate_lock()
+
+STOP_SERVER = False
 
 def start(filename, hhc_callback=None):
     thread.start_new_thread(_serve_chm, (HOST, PORT, filename, hhc_callback))
     
 def stop():
     if LOCK.locked():
+        global STOP_SERVER
+        STOP_SERVER = True
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
+            print "request shutdown signal"
             sock.connect((HOST, PORT))
-            sock.send(_SENTINEL)
             sock.close()
-            print "shutdown signal sent"
             LOCK.acquire() #block method until we are sure server stops
             LOCK.release()
         except:
@@ -68,55 +70,60 @@ def _serve_chm(hostname, port, filename, hhc_callback=None):
 def _serve_chm_forever(chm_file, hostname, port):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        except AttributeError:
+            pass
         sock.bind((hostname, port))
         sock.listen(5)
         try:
             while 1:
                 csock, caddr = sock.accept()
-                try:
-                    rfile = csock.makefile('rb', -1)
-                    try:
-                        line = rfile.readline().strip()
-                        if line == _SENTINEL:
-                            break
-                        filename = line[line.find("/"):line.find(" HTTP/")].lower()
-                        extension = filename[filename.rfind("."):]
-                        type = TYPES.get(extension, "text/html")
-                    finally:
-                        rfile.close()    
-                    wfile = csock.makefile('wb', -1)
-                    try:
-                        try:
-                            ui = chm_file.resolve_object(filename)
-                            if ui:
-                                _respond(ui.get_content(), wfile, type)
-                            else:
-                                _respond_not_found(wfile)
-                        except:
-                            _respond_error(wfile)
-                    finally:
-                        wfile.close()
-                except socket.error, e:
-                    if isinstance(e.args, tuple):
-                        if e[0] == errno.EPIPE:
-                            print "Detected client disconnect" 
-                            continue #this error can be safely ignored
-                    raise e
-                    csock.close()
-                else:
-                    csock.close()
+                if STOP_SERVER:
+                    break
+                _service(csock, chm_file)
         finally:
             sock.close()
     finally:
         chm_file.close()
     
-def _respond(content, cfile, type="text/html"):
-    cfile.write("HTTP/1.1 200 OK\n")
-    cfile.write("Content-Type: " + type + "\n")
-    cfile.write("Content-Length: " + str(len(content)) + "\n")
-    cfile.write("Connection: Keep-Alive\n")
-    cfile.write("\n")
-    cfile.write(content)
+def _read_request(remote):
+    return remote.recv(1024).strip()
+        
+def _write_response(remote, chm_file, filename, type):
+    try:
+        if STOP_SERVER:
+            return
+        ui = chm_file.resolve_object(filename)
+        if ui:
+            if STOP_SERVER:
+                return
+            _respond(ui.get_content(), remote, type)
+        else:
+            _respond_not_found(remote)
+    except:
+        _respond_error(remote)
+    
+def _service(csock, chm_file):
+    try:
+        line = _read_request(csock)
+        filename = line[line.find("/"):line.find(" HTTP/")].lower()
+        extension = filename[filename.rfind("."):]
+        type = TYPES.get(extension, "text/html")
+        _write_response(csock, chm_file, filename, type)    
+    except socket.error:
+        csock.close()
+    else:
+        csock.close()
+
+_HTTP_RESPONSE = """HTTP/1.1 200 OK
+Content-Length: %d
+Content-Type: %s
+
+%s"""
+
+def _respond(content, remote, type="text/html"):
+    remote.sendall(_HTTP_RESPONSE % (len(content), type, content))
     
 def _respond_error(cfile):
     _respond("Page could not be displayed", cfile)
@@ -134,6 +141,5 @@ if __name__ == '__main__':
         import time
         time.sleep(30)
         stop()
-        print "server stopped"
     else:
         print "Please provide a CHM file as parameter"
