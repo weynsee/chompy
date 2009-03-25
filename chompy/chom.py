@@ -97,7 +97,7 @@ class Chompy:
             viewer = HHCViewer(filename, contents, encoding)
             viewer.show()
             server.stop() #if there is an error, no need to stop server
-            self.quit()
+            self.refresh()
         else:
             if error == server.ERR_INVALID_CHM:
                 appuifw.note(u"CHM File cannot be read", "error")

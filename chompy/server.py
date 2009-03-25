@@ -32,13 +32,13 @@ def stop():
         STOP_SERVER = True
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            print "request shutdown signal"
+            #request shutdown signal
             sock.connect((HOST, PORT))
             sock.close()
             LOCK.acquire() #block method until we are sure server stops
             LOCK.release()
         except:
-            print "cannot connect to server"
+            pass #cannot connect to server
 
 def _serve_chm(hostname, port, filename, hhc_callback=None):
     LOCK.acquire()
@@ -46,8 +46,8 @@ def _serve_chm(hostname, port, filename, hhc_callback=None):
         try:
             chm_file = chm(filename)
         except Exception, e:
-            print e
-            raise 
+            hhc_callback(error=ERR_INVALID_CHM)
+            return
         if hhc_callback:
             hhc_file = chm_file.get_hhc()
             if hhc_file:
@@ -61,11 +61,10 @@ def _serve_chm(hostname, port, filename, hhc_callback=None):
         try:
             _serve_chm_forever(chm_file, hostname, port)
         except Exception, e:
-            print "server shutting down because of error"
-            print e
+            # server shutting down because of error
+            pass
     finally:
         LOCK.release()
-    print "server shutdown"
     
 def _serve_chm_forever(chm_file, hostname, port):
     try:
