@@ -1,14 +1,17 @@
 import unittest
 import struct
 
-from pychmlib.chm import chm, UnitInfo
-from util import * 
+from util import *
+
+load_modules()
+
+from chm import chm, UnitInfo
 
 class CHMFile1Test(unittest.TestCase):
     "test cases for CHMFile"
     
     def setUp(self):
-        self.chm = chm("chm_files/CHM-example.chm")
+        self.chm = chm(get_filename("chm_files/CHM-example.chm"))
         
     def test_itsf(self):
         itsf = self.chm.itsf
@@ -68,7 +71,7 @@ class CHMFile2Test(unittest.TestCase):
     "test cases for CHMFile"
     
     def setUp(self):
-        self.chm = chm("chm_files/iexplore.chm")
+        self.chm = chm(get_filename("chm_files/iexplore.chm"))
         
     def test_itsf(self):
         itsf = self.chm.itsf
@@ -128,29 +131,29 @@ class CHMFile2Test(unittest.TestCase):
 class UnitInfoTest(unittest.TestCase):
     
     def test_hhc_1(self):
-        file = chm("chm_files/iexplore.chm")
+        file = chm(get_filename("chm_files/iexplore.chm"))
         ui = UnitInfo(chm=file,name="/iexplore.hhc",compressed=True, length=18256, offset=1671249)
         content = ui.get_content()
         assert_content(self,content, "iexplore.hhc")
         
     def test_hhc_2(self):
-        file = chm("chm_files/CHM-example.chm")
+        file = chm(get_filename("chm_files/CHM-example.chm"))
         ui = UnitInfo(chm=file,name="/CHM-example.hhc",compressed=True, length=4051, offset=423573)
         content = ui.get_content()
         assert_content(self,content, "CHM-example.hhc")
         
     def test_content_1(self):
-        chm_file = chm("chm_files/CHM-example.chm")
+        chm_file = chm(get_filename("chm_files/CHM-example.chm"))
         assert_unit_info(self, chm_file, "/design.css")
         assert_unit_info(self, chm_file, "/images/ditzum.jpg", "ditzum.jpg")
         
     def test_content_2(self):
-        chm_file = chm("chm_files/iexplore.chm")
+        chm_file = chm(get_filename("chm_files/iexplore.chm"))
         assert_unit_info(self, chm_file, "/DLG_LMZL.htm")
         assert_unit_info(self, chm_file, "/minusHot.GIF")
 
     def test_content_3(self):
-        chm_file = chm("chm_files/iexplore.chm")
+        chm_file = chm(get_filename("chm_files/iexplore.chm"))
         assert_unit_info(self, chm_file, "/browstip.htm")
         assert_unit_info(self, chm_file, "/search.jpg")
         assert_unit_info(self, chm_file, "/searchbutton.jpg")
@@ -165,7 +168,7 @@ def assert_unit_info(test, chm_file, entry_name, test_file=None):
     assert_content(test, content, test_file)
 
 def assert_content(test, actual, filename):
-    expected = read_file("chm_files/"+filename)
+    expected = read_file(get_filename("chm_files/"+filename))
     test.assertEquals(len(expected),len(actual))
     test.assertEquals(expected, actual)
 
