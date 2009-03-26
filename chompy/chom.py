@@ -112,9 +112,6 @@ class Chompy:
     
     def quit(self):
         self.save_recent()
-        self.lb = None
-        self.hhc_callback = None
-        self.fb = None
         self.app_lock.signal()
         
     def stall(self):
@@ -140,6 +137,11 @@ class Chompy:
         self.lb = appuifw.Listbox(self.get_list(), self.lb_observe)
         self.refresh()
         self.app_lock.wait()
+        self.lb = None
+        self.hhc_callback = None
+        self.fb = None
+        appuifw.app.body = None
+        appuifw.app.exit_key_handler = None
 
 class HHCViewer:
     
@@ -183,7 +185,7 @@ class HHCViewer:
         lock.wait()
             
     def quit(self):
-        self.lb = None
+        appuifw.app.exit_key_handler = None
         self.app_lock.signal()
         
     def open(self):
@@ -200,6 +202,8 @@ class HHCViewer:
         self.lb = appuifw.Listbox(entries, self.lb_observe)
         self.refresh()
         self.app_lock.wait()
+        self.lb = None
+        appuifw.app.body = None
 
 
 if __name__ == '__main__':
