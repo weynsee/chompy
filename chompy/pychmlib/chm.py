@@ -13,7 +13,6 @@ _CHARSET_TABLE = {
     0x040D:"ISO-8859-8",
     0x0411:"euc-jp",
     0x0412:"euc-kr",
-    0x0419:"ISO-8859-5",
     0x041F:"ISO-8859-9"       
 }
 

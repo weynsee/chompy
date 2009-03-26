@@ -4,7 +4,7 @@ from pychmlib.chm import chm
 import server
 import appuifw
 import e32
-import filebrowser
+import chm_filebrowser
 import os
 import e32dbm
 import hhc
@@ -29,7 +29,7 @@ class Chompy:
     
     def __init__(self):
         self.app_lock = e32.Ao_lock()
-        self.fb = filebrowser.Filebrowser()
+        self.fb = chm_filebrowser.Filebrowser()
         self.load_recent()
         self.hhc_callback = e32.ao_callgate(self.load_hhc_viewer)
         
@@ -61,7 +61,8 @@ class Chompy:
                 self.recent.append(file)
                 self.update_list(len(self.recent) - 1)    
             self.open(file)
-        self.refresh()
+        else:
+            self.refresh()
         
     def to_display(self, filename):
         return unicode(os.path.basename(filename))
@@ -97,13 +98,12 @@ class Chompy:
             viewer = HHCViewer(filename, contents, encoding)
             viewer.show()
             server.stop() #if there is an error, no need to stop server
-            self.refresh()
         else:
             if error == server.ERR_INVALID_CHM:
                 appuifw.note(u"CHM File cannot be read", "error")
             elif error == server.ERR_NO_HHC:
                 appuifw.note(u"CHM File contains no HHC file", "error")
-            self.refresh()
+        self.refresh()
         
     def remove(self):
         index = self.lb.current()
@@ -111,10 +111,11 @@ class Chompy:
         self.update_list(index)
     
     def quit(self):
-        self.app_lock.signal()
         self.save_recent()
         self.lb = None
         self.hhc_callback = None
+        self.fb = None
+        self.app_lock.signal()
         
     def stall(self):
         appuifw.app.menu = []
@@ -182,8 +183,8 @@ class HHCViewer:
         lock.wait()
             
     def quit(self):
-        self.app_lock.signal()
         self.lb = None
+        self.app_lock.signal()
         
     def open(self):
         self.lb_observe()
