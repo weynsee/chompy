@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import nested_scopes
 from pychmlib.chm import chm
 
 import socket
 import thread
 import hhc
-import errno
 
 HOST = '127.0.0.1'
 PORT = 8081
