@@ -2,7 +2,7 @@ import os
 import shutil
 
 def will_be_ignored(name):
-    return name.startswith("test") or name.endswith(".pyc")
+    return name.startswith("test") or name.endswith(".pyc") or name.endswith(".txt")
 
 def copy_tree(src, dst):
     names = os.listdir(src)
