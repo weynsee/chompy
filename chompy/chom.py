@@ -135,7 +135,10 @@ class Chompy:
         text.style = appuifw.STYLE_ITALIC
         text.set(u"Please wait while CHM file is being read...")
         appuifw.app.body = text
-        appuifw.app.exit_key_handler = None
+        appuifw.app.exit_key_handler = self.stop_quit
+        
+    def stop_quit(self):
+        appuifw.note(u"Cannot exit until process has finished", "info")
         
     def refresh(self):
         menu_list = [(u"Browse for file", self.browse), (u"Exit", self.quit)]
