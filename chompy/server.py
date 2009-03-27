@@ -101,7 +101,7 @@ def _serve_chm_forever(chm_file, hostname, port):
         chm_file.close()
     
 def _read_request(remote):
-    return remote.recv(1024).strip()
+    return remote.recv(128).strip()
         
 def _write_response(remote, chm_file, filename, type):
     try:

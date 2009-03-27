@@ -112,12 +112,13 @@ class Chompy:
             viewer = HHCViewer(filename, contents, encoding)
             viewer.show()
             server.stop() #if there is an error, no need to stop server
+            self.exit_screen()
         else:
             if error == server.ERR_INVALID_CHM:
                 appuifw.note(u"CHM File cannot be read", "error")
             elif error == server.ERR_NO_HHC:
                 appuifw.note(u"CHM File contains no HHC file", "error")
-        self.refresh()
+            self.refresh()
         
     def remove(self):
         index = self.lb.current()
@@ -149,6 +150,14 @@ class Chompy:
         appuifw.app.exit_key_handler = self.quit
         appuifw.app.title = u"chompy"
         appuifw.app.body = self.lb
+        
+    def exit_screen(self):
+        appuifw.app.menu = []
+        appuifw.app.exit_key_handler = self.quit
+        appuifw.app.title = u"chompy"
+        text = appuifw.Text()
+        text.set(u"Application can now be safely closed.")
+        appuifw.app.body = text
     
     def show(self):
         self.lb = appuifw.Listbox(self.get_list(), self.lb_observe)
