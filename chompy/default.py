@@ -15,3 +15,6 @@
 import chom
 
 chom.Chompy().show()
+
+import sys
+sys.exit()

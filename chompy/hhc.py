@@ -55,6 +55,7 @@ class HHCObject:
         self.is_root = False
         self.parent = None
         self.name = None
+        self.local = None
         
     def _set_as_inner_node(self):
         self.is_inner_node = True
@@ -90,7 +91,10 @@ if __name__ == "__main__":
         contents = parse(hhc_file_contents)
         def recur_print(content, spaces=0):
             if spaces > 0:
-                print " " * spaces + content.name
+                tab = " " * spaces
+                print tab + content.name
+                if content.local:
+                    print tab + "(" +content.local + ")"
             if content.is_inner_node:
                 for i in content.children:
                     recur_print(i, spaces + 2)

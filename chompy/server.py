@@ -81,10 +81,6 @@ def _serve_chm(hostname, port, filename, hhc_callback=None):
 def _serve_chm_forever(chm_file, hostname, port):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        except AttributeError:
-            pass
         sock.bind((hostname, port))
         sock.listen(5)
         try:

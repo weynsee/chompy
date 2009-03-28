@@ -12,29 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import nested_scopes
-from pychmlib.chm import chm
-
 import server
 import appuifw
 import e32
 import chm_filebrowser
 import os
 import e32dbm
-import hhc
 
 CONF_FILE = u"E:\\Data\\chompy\\chompy.cfg"
-INIT_FILE = u"E:\\Data\\chompy\\tmp.html"
+INIT_FILE = u"E:\\Data\\chompy\\online.html"
+LOCAL_FILE = u"E:\\Data\\chompy\\offline.html"
 SEPARATOR = u"/"
 
 INIT_HTML = u"""<html>
 <body>
 <script type="text/javascript">
-document.location = "http://localhost:""" + unicode(server.PORT) + """/%s"
+location.replace("http://localhost:""" + unicode(server.PORT) + """/%s")
 </script>
 </body>
 </html>
 """
+
+ERROR_TEMPLATE = """<html>
+<body>
+%s
+</body>
+</html>
+"""
+
+ERR_READING = u"CHM File cannot be read"
+ERR_NO_HHC = u"CHM File contains no HHC file"
 
 if not os.path.exists("E:\\Data\\chompy"):
     os.makedirs("E:\\Data\\chompy")
@@ -104,8 +111,41 @@ class Chompy:
     def open(self, filename=None):
         if filename is None:
             filename = self.recent[self.lb.current()]
+        res = appuifw.popup_menu([u"Offline Mode", u"Online Mode"])
+        if res == 0:
+            self.open_offline(filename)
+        elif res == 1:
+            self.open_online(filename)
+        
+    def open_online(self, filename):
         server.start(filename, self.hhc_callback)
-        self.stall()
+        stall()
+        
+    def open_offline(self, filename):
+        stall()
+        e32.ao_yield()
+        import pychmlib
+        try:
+            chm_file = pychmlib.chm.chm(filename)
+        except:
+            appuifw.note(ERR_READING, "error")
+            self.refresh()
+            return
+        try:
+            hhc_file = chm_file.get_hhc()
+            if hhc_file:
+                import hhc
+                hhc_obj = hhc.parse(hhc_file.get_content())
+                viewer = HHCViewer(filename, hhc_obj, chm_file.encoding)
+                viewer.set_as_offline(chm_file)
+                viewer.show()
+                self.quit()
+            else:
+                appuifw.note(ERR_NO_HHC, "error")
+                self.refresh()
+                return
+        finally:
+            chm_file.close()
         
     def load_hhc_viewer(self, filename=None, contents=None, encoding=None, error=None):
         if not error:
@@ -115,9 +155,9 @@ class Chompy:
             self.exit_screen()
         else:
             if error == server.ERR_INVALID_CHM:
-                appuifw.note(u"CHM File cannot be read", "error")
+                appuifw.note(ERR_READING, "error")
             elif error == server.ERR_NO_HHC:
-                appuifw.note(u"CHM File contains no HHC file", "error")
+                appuifw.note(ERR_NO_HHC, "error")
             self.refresh()
         
     def remove(self):
@@ -128,18 +168,6 @@ class Chompy:
     def quit(self):
         self.save_recent()
         self.app_lock.signal()
-        
-    def stall(self):
-        appuifw.app.menu = []
-        appuifw.app.title = u"Loading..."
-        text = appuifw.Text()
-        text.style = appuifw.STYLE_ITALIC
-        text.set(u"Please wait while CHM file is being read...")
-        appuifw.app.body = text
-        appuifw.app.exit_key_handler = self.stop_quit
-        
-    def stop_quit(self):
-        appuifw.note(u"Cannot exit until process has finished", "info")
         
     def refresh(self):
         menu_list = [(u"Browse for file", self.browse), (u"Exit", self.quit)]
@@ -173,9 +201,13 @@ class HHCViewer:
     
     def __init__(self, filename, hhc_obj, encoding):
         self.title = os.path.basename(filename)
+        self.chm_file = None
         self.current_context = hhc_obj
         self.encoding = encoding
         self.app_lock = e32.Ao_lock()
+        
+    def set_as_offline(self, chm_file):
+        self.chm_file = chm_file
     
     def to_displayable_list(self):
         entries = map(lambda x: x.name.decode(self.encoding), self.current_context.children)
@@ -195,20 +227,61 @@ class HHCViewer:
                 selected_index -= 1
             selected = self.current_context.children[selected_index]
         if selected.is_inner_node:
-            self.current_context = selected
-            entries = self.to_displayable_list()
-            self.lb.set_list(entries)
+            if selected.local:
+                res = appuifw.popup_menu([u"Load page", u"List contents"])
+                if res == 0:
+                    self.load_in_viewer(selected.local)
+                elif res == 1:
+                    self.load_directory(selected)
+            else:
+                self.load_directory(selected)
         else:
-            self.load_in_viewer(selected)
+            self.load_in_viewer(selected.local)
+            
+    def load_directory(self, entry):
+        self.current_context = entry
+        entries = self.to_displayable_list()
+        self.lb.set_list(entries)
     
-    def load_in_viewer(self, entry):
-        f = file(INIT_FILE, "w")
-        f.write(INIT_HTML % entry.local)
+    def load_in_viewer(self, local):
+        if self.chm_file:
+            self.load_offline(local)
+        else:
+            self.load_online(local)
+            
+    def load_online(self, local):
+        self.open_local_html(INIT_FILE, INIT_HTML % local)
+        
+    def open_local_html(self, filename, content):
+        f = open(filename, "wb")
+        f.write(content)
         f.close()
-        lock = e32.Ao_lock()
-        viewer = appuifw.Content_handler(lock.signal)
-        viewer.open(INIT_FILE)
+        self.browser_lock = e32.Ao_lock()
+        viewer = appuifw.Content_handler(self.close_browser)
+        viewer.open(filename)
         lock.wait()
+        
+    def close_browser(self):
+        if self.chm_file:
+            self.refresh()
+            os.remove(LOCAL_FILE)
+        self.browser_lock.signal()
+        
+    def load_offline(self, local):
+        stall(u"Please wait while page is extracted from the archive...")
+        e32.ao_yield()
+        ui = self.chm_file.resolve_object("/"+local)
+        try:
+            if ui:
+                content = ui.get_content()
+            else:
+                content = ERROR_TEMPLATE % "Page cannot be found"
+        except:
+            content = ERROR_TEMPLATE % "Page could not be displayed"
+        try:
+            self.open_local_html(LOCAL_FILE, content)
+        except:
+            self.refresh()
             
     def quit(self):
         appuifw.app.exit_key_handler = None
@@ -230,6 +303,19 @@ class HHCViewer:
         self.app_lock.wait()
         self.lb = None
         appuifw.app.body = None
+
+
+def stall(msg = u"Please wait while CHM file is being read..."):
+    appuifw.app.menu = []
+    appuifw.app.title = u"Loading..."
+    text = appuifw.Text()
+    text.style = appuifw.STYLE_ITALIC
+    text.set(msg)
+    appuifw.app.body = text
+    appuifw.app.exit_key_handler = stop_quit
+    
+def stop_quit():
+    appuifw.note(u"Cannot exit until process has finished", "info")
 
 
 if __name__ == '__main__':
