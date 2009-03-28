@@ -253,19 +253,15 @@ class HHCViewer:
         self.open_local_html(INIT_FILE, INIT_HTML % local)
         
     def open_local_html(self, filename, content):
-        f = open(filename, "wb")
-        f.write(content)
-        f.close()
-        self.browser_lock = e32.Ao_lock()
-        viewer = appuifw.Content_handler(self.close_browser)
+        html_file = open(filename, "wb")
+        try:
+            html_file.write(content)
+        finally:
+            html_file.close()
+        browser_lock = e32.Ao_lock()
+        viewer = appuifw.Content_handler(browser_lock.signal)
         viewer.open(filename)
-        lock.wait()
-        
-    def close_browser(self):
-        if self.chm_file:
-            self.refresh()
-            os.remove(LOCAL_FILE)
-        self.browser_lock.signal()
+        browser_lock.wait()
         
     def load_offline(self, local):
         stall(u"Please wait while page is extracted from the archive...")
@@ -280,6 +276,7 @@ class HHCViewer:
             content = ERROR_TEMPLATE % "Page could not be displayed"
         try:
             self.open_local_html(LOCAL_FILE, content)
+            self.refresh()
         except:
             self.refresh()
             
