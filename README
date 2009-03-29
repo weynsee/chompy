@@ -1,4 +1,25 @@
-chompy is a CHM reader intended for use in phones using Symbian.
+chompy is a simple CHM viewer for Nokia S60 3rd Ed. phones. It can read and load CHM files and displays CHM content using the phone's native browser. It runs on PyS60.
 
+Currently, it provides two modes for viewing:
+- Offline mode. Pages render much faster than in online mode but images are not shown and hyperlinks do not work. 
+- Online mode (Experimental). Images are loaded and hyperlinks link to other pages, but pages render much slower (and, for large pages, may not load the whole page). Note that online mode does not require the use of an internet connection.
+
+Currently, it is recommended to use offline mode since the pages are guaranteed to load fully. Yeah, not being able to see images or use hyperlinks suck, but hopefully in the future online mode can be improved.
+
+Installation
+------------
+It can be run on a mobile phone in 2 ways: as a Python script runnable from the PyS60 Script Shell, or installed using a SIS file. A SIS file built from the latest source is provided in http://github.com/weynsee/chompy/downloads. 
+
+Building
+--------
 Requirements:
 Python (at least 2.2)
+
+To create a custom SIS file, you can use ensymble (http://code.google.com/p/ensymble/). A build.py script has been provided to help bootstrap the creation of the SIS file. A SIS file can be created by using the following commands:
+
+python build.py
+python ensymble.py py2sis dist/chompy
+
+License
+-------
+License is Apache 2.0. See the file LICENSE for more information.
