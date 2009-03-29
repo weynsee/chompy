@@ -15,7 +15,7 @@ Building
 Requirements:
 Python (at least 2.2)
 
-To create a custom SIS file, you can use ensymble (http://code.google.com/p/ensymble/). A build.py script has been provided to help bootstrap the creation of the SIS file. A SIS file can be created by using the following commands:
+To create a custom SIS file, you can use ensymble ( http://code.google.com/p/ensymble/ ). A build.py script has been provided to help bootstrap the creation of the SIS file. A SIS file can be created by using the following commands:
 
 python build.py
 python ensymble.py py2sis dist/chompy
