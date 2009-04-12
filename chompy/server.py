@@ -123,11 +123,7 @@ def _service(csock, chm_file):
     else:
         csock.close()
 
-_HTTP_RESPONSE = """HTTP/1.1 200 OK
-Content-Length: %d
-Content-Type: %s
-
-%s"""
+_HTTP_RESPONSE = "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: %s\r\n\r\n%s"
 
 def _respond(content, remote, type="text/html"):
     remote.sendall(_HTTP_RESPONSE % (len(content), type, content))
