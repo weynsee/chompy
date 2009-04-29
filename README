@@ -8,7 +8,7 @@ Currently, it is recommended to use offline mode since the pages are guaranteed 
 
 Installation
 ------------
-It can be run on a mobile phone in 2 ways: as a Python script runnable from the PyS60 Script Shell, or installed using a SIS file. A SIS file built from the latest source is provided in http://github.com/weynsee/chompy/downloads. 
+It can be run on a mobile phone in 2 ways: as a Python script runnable from the PyS60 Script Shell, or installed using a SIS file. A SIS file built from the latest source is provided in http://github.com/weynsee/chompy/downloads. Both installations require the PyS60 interpreter to already be present in the phone. PyS60 can be downloaded in http://sourceforge.net/projects/pys60. Download version 1.4.5.
 
 Building
 --------
