@@ -1,4 +1,4 @@
-chompy is a simple CHM viewer for Nokia S60 3rd Ed. phones. It can read and load CHM files and displays CHM content using the phone's native browser. It runs on PyS60.
+chompy is a simple CHM viewer for Nokia S60 3rd Edition phones. It can read and load CHM files and displays CHM content using the phone's native browser. It runs on PyS60 1.4.5.
 
 Currently, it provides two modes for viewing:
 - Offline mode. Pages render much faster than in online mode but images are not shown and hyperlinks do not work. 
